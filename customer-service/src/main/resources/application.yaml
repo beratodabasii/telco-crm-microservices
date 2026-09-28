@@ -1,0 +1,15 @@
+server:
+  port: 9002
+
+spring:
+  kafka:
+    bootstrap-servers: localhost:9092
+  datasource:
+    url: jdbc:postgresql://localhost:5433/customer_db
+    username: telco
+    password: telco123
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true

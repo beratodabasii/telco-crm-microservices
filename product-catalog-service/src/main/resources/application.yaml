@@ -1,0 +1,16 @@
+server:
+  port: 9003
+
+spring:
+  application:
+    name: product-catalog-service
+
+  datasource:
+    url: jdbc:postgresql://localhost:5433/product_catalog_db
+    username: telco
+    password: telco123
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
