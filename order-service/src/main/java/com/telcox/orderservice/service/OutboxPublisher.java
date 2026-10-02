@@ -1,7 +1,6 @@
 package com.telcox.orderservice.service;
 
 import com.telcox.orderservice.entity.OutboxEvent;
-import com.telcox.orderservice.event.OrderCreatedEvent;
 import com.telcox.orderservice.repository.OutboxEventRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.kafka.core.KafkaTemplate;
@@ -26,7 +25,10 @@ public class OutboxPublisher {
             String topic = null;
             if (eventType.equals("OrderCreatedEvent")) {
                 topic = "order.created";
-
+            } else if (eventType.equals("OrderCancelledEvent")) {
+                topic = "order.cancelled";
+            } else if (eventType.equals("OrderConfirmedEvent")) {
+                topic = "order.confirmed";
             }
             if(topic==null){
                 continue;

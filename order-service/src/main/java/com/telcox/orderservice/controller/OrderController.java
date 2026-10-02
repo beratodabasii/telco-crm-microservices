@@ -39,4 +39,8 @@ public class OrderController {
         return orderService.cancelOrder(id);
     }
 
+    @PostMapping("/{id}/confirm")
+    public Order confirmOrder(@PathVariable Long id) {
+        return orderService.confirmOrder(id);
+    }
 }

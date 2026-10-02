@@ -8,6 +8,8 @@ import com.telcox.orderservice.entity.Order;
 import com.telcox.orderservice.entity.OrderItem;
 import com.telcox.orderservice.entity.OutboxEvent;
 import com.telcox.orderservice.enums.OrderStatus;
+import com.telcox.orderservice.event.OrderCancelledEvent;
+import com.telcox.orderservice.event.OrderConfirmedEvent;
 import com.telcox.orderservice.event.OrderCreatedEvent;
 import com.telcox.orderservice.exception.CustomerNotActiveException;
 import com.telcox.orderservice.repository.OrderItemRepository;
@@ -102,7 +104,7 @@ public class OrderService {
       return newOrderItem ;
 
     }
-
+    @Transactional
     public Order cancelOrder(Long orderId){
         Order order =  orderRepository.findById(orderId).orElseThrow(
                 ()-> new RuntimeException("Order not found")
@@ -112,7 +114,49 @@ public class OrderService {
         }
         order.setStatus(OrderStatus.CANCELLED);
         orderRepository.save(order);
+        OrderCancelledEvent orderCancelledEvent = new OrderCancelledEvent();
+        orderCancelledEvent.setOrderId(orderId);
+        orderCancelledEvent.setCustomerId(order.getCustomerId());
+        orderCancelledEvent.setCancelledAt(LocalDateTime.now());
+        String payload = objectMapper.writeValueAsString(orderCancelledEvent);
+        OutboxEvent outboxEvent = new OutboxEvent();
+        outboxEvent.setEventType("OrderCancelledEvent");
+        outboxEvent.setPayload(payload);
+        outboxEvent.setCreatedAt(LocalDateTime.now());
+        outboxEvent.setPublished(false);
+        outboxEventRepository.save(outboxEvent);
         return order;
+    }
+    @Transactional
+    public Order confirmOrder(Long orderId){
+        Order order =  orderRepository.findById(orderId).orElseThrow(
+                ()-> new RuntimeException("Order not found")
+        );
+        if( order.getStatus() == OrderStatus.CANCELLED){
+            throw new RuntimeException("Order is already cancelled");
+        } else if (order.getStatus() != OrderStatus.DRAFT ) {
+            throw new RuntimeException("Order is not in DRAFT status");
+        }
+        if (order.getTotalAmount().compareTo(BigDecimal.ZERO) <= 0) {
+            throw new RuntimeException("Order total must be greater than zero");
+        }
+        order.setStatus(OrderStatus.PENDING_PAYMENT);
+        orderRepository.save(order);
+        OrderConfirmedEvent orderConfirmedEvent = new OrderConfirmedEvent();
+        orderConfirmedEvent.setOrderId(order.getId());
+        orderConfirmedEvent.setCustomerId(order.getCustomerId());
+        orderConfirmedEvent.setTotalAmount(order.getTotalAmount());
+        orderConfirmedEvent.setCurrency(order.getCurrency());
+        orderConfirmedEvent.setConfirmedAt(LocalDateTime.now());
+        String payload = objectMapper.writeValueAsString(orderConfirmedEvent);
+        OutboxEvent outboxEvent = new OutboxEvent();
+        outboxEvent.setEventType("OrderConfirmedEvent");
+        outboxEvent.setPayload(payload);
+        outboxEvent.setCreatedAt(LocalDateTime.now());
+        outboxEvent.setPublished(false);
+        outboxEventRepository.save(outboxEvent);
+        return order;
+
     }
 
 }
