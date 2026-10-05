@@ -159,4 +159,17 @@ public class OrderService {
 
     }
 
+    public Order markOrderAsPaid(Long orderId){
+        Order order =  orderRepository.findById(orderId).orElseThrow(
+                ()-> new RuntimeException("Order not found")
+        );
+
+        if(order.getStatus() != OrderStatus.PENDING_PAYMENT){
+            throw new RuntimeException("Order is not in PENDING_PAYMENT status");
+        }
+        order.setStatus(OrderStatus.PAID);
+        orderRepository.save(order);
+        return order;
+    }
+
 }
