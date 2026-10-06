@@ -1,0 +1,16 @@
+server:
+  port: 9005
+
+spring:
+  application:
+    name: subscription-service
+
+  datasource:
+    url: jdbc:postgresql://localhost:5433/subscription_db
+    username: telco
+    password: telco123
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true

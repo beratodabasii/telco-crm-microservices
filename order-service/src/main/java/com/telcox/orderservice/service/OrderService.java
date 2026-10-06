@@ -172,4 +172,22 @@ public class OrderService {
         return order;
     }
 
+    public Order markOrderAsFulfilled(Long orderId){
+        Order order =  orderRepository.findById(orderId).orElseThrow(
+                ()-> new RuntimeException("Order not found")
+        );
+
+        if (order.getStatus() == OrderStatus.FULFILLED) {
+            return order;
+        }
+
+       if(order.getStatus() != OrderStatus.PAID){
+           throw new RuntimeException("Order must be PAID before fulfillments");
+       }
+       order.setStatus(OrderStatus.FULFILLED);
+       orderRepository.save(order);
+       return order;
+
+    }
+
 }
