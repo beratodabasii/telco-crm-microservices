@@ -31,6 +31,13 @@ public class PaymentService {
        Payment paymentToComplete = paymentRepository.findById(paymentId).orElseThrow(
                ()-> new RuntimeException("Payment not found")
        );
+        if (paymentToComplete.getStatus() == PaymentStatus.COMPLETED) {
+            return paymentToComplete;
+        }
+        if (paymentToComplete.getStatus() == PaymentStatus.FAILED) {
+            throw new RuntimeException("Failed payment cannot be completed");
+        }
+
        paymentToComplete.setStatus(PaymentStatus.COMPLETED);
        paymentRepository.save(paymentToComplete);
         PaymentCompletedEvent paymentCompletedEvent = new PaymentCompletedEvent();
@@ -55,6 +62,12 @@ public class PaymentService {
         Payment paymentToFail = paymentRepository.findById(paymentId).orElseThrow(
                 ()-> new RuntimeException("Payment not found")
         );
+        if (paymentToFail.getStatus() == PaymentStatus.FAILED) {
+            return paymentToFail;
+        }
+        if (paymentToFail.getStatus() == PaymentStatus.COMPLETED) {
+            throw new RuntimeException("Completed payment cannot be failed");
+        }
         paymentToFail.setStatus(PaymentStatus.FAILED);
         paymentRepository.save(paymentToFail);
         PaymentFailedEvent paymentFailedEvent = new PaymentFailedEvent();

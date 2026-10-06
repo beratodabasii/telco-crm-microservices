@@ -11,6 +11,7 @@ import com.telcox.orderservice.enums.OrderStatus;
 import com.telcox.orderservice.event.OrderCancelledEvent;
 import com.telcox.orderservice.event.OrderConfirmedEvent;
 import com.telcox.orderservice.event.OrderCreatedEvent;
+import com.telcox.orderservice.event.OrderPaidEvent;
 import com.telcox.orderservice.exception.CustomerNotActiveException;
 import com.telcox.orderservice.repository.OrderItemRepository;
 import com.telcox.orderservice.repository.OrderRepository;
@@ -159,14 +160,42 @@ public class OrderService {
 
     }
 
+    @Transactional
     public Order markOrderAsPaid(Long orderId){
         Order order =  orderRepository.findById(orderId).orElseThrow(
                 ()-> new RuntimeException("Order not found")
         );
 
+        OrderItem orderItem = orderItemRepository.findFirstByOrderId(orderId).orElseThrow(
+                ()-> new RuntimeException("OrderItem not found")
+        );
+
+
+        if (order.getStatus() == OrderStatus.PAID ||
+                order.getStatus() == OrderStatus.FULFILLED) {
+            return order;
+        }
+
         if(order.getStatus() != OrderStatus.PENDING_PAYMENT){
             throw new RuntimeException("Order is not in PENDING_PAYMENT status");
         }
+
+        OrderPaidEvent orderPaidEvent = new OrderPaidEvent();
+        orderPaidEvent.setOrderId(orderId);
+        orderPaidEvent.setCustomerId(order.getCustomerId());
+        orderPaidEvent.setTariffCode(orderItem.getProductCode());
+        orderPaidEvent.setPaidAt(LocalDateTime.now());
+        String payload = objectMapper.writeValueAsString(orderPaidEvent);
+
+
+        OutboxEvent outboxEvent = new OutboxEvent();
+        outboxEvent.setEventType("OrderPaidEvent");
+        outboxEvent.setPayload(payload);
+        outboxEvent.setCreatedAt(LocalDateTime.now());
+        outboxEvent.setPublished(false);
+        outboxEventRepository.save(outboxEvent);
+
+
         order.setStatus(OrderStatus.PAID);
         orderRepository.save(order);
         return order;

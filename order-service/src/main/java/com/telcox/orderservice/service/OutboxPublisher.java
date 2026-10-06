@@ -29,6 +29,8 @@ public class OutboxPublisher {
                 topic = "order.cancelled";
             } else if (eventType.equals("OrderConfirmedEvent")) {
                 topic = "order.confirmed";
+            } else if (eventType.equals("OrderPaidEvent")) {
+                topic = "order.paid";
             }
             if(topic==null){
                 continue;
