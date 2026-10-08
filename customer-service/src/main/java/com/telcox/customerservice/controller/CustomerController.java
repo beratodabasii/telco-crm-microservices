@@ -1,8 +1,12 @@
 package com.telcox.customerservice.controller;
 
-import com.telcox.customerservice.entity.Address;
-import com.telcox.customerservice.entity.Customer;
-import com.telcox.customerservice.entity.Document;
+import com.telcox.customerservice.dto.AddAddressRequest;
+import com.telcox.customerservice.dto.AddDocumentRequest;
+import com.telcox.customerservice.dto.AddressResponse;
+import com.telcox.customerservice.dto.CreateCustomerRequest;
+import com.telcox.customerservice.dto.CustomerResponse;
+import com.telcox.customerservice.dto.DocumentResponse;
+import com.telcox.customerservice.dto.UpdateCustomerRequest;
 import com.telcox.customerservice.service.CustomerService;
 import org.springframework.web.bind.annotation.*;
 
@@ -11,53 +15,74 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/v1/customers")
 public class CustomerController {
+
     private final CustomerService customerService;
+
     public CustomerController(CustomerService customerService) {
         this.customerService = customerService;
     }
 
     @PostMapping
-    public Customer createCustomer(@RequestBody Customer customer) {
-        return customerService.createCustomer(customer);
+    public CustomerResponse createCustomer(
+            @RequestBody CreateCustomerRequest request
+    ) {
+        return customerService.createCustomer(request);
     }
 
     @GetMapping("/{id}")
-    public Customer getCustomerById(@PathVariable Long id){
+    public CustomerResponse getCustomerById(
+            @PathVariable Long id
+    ) {
         return customerService.getCustomerById(id);
     }
 
     @GetMapping
-    public List<Customer> getAllCustomers(){
+    public List<CustomerResponse> getAllCustomers() {
         return customerService.getAllCustomers();
     }
 
     @PutMapping("/{id}")
-    public Customer updateCustomer(@PathVariable Long id ,@RequestBody Customer customer){
-        return customerService.updateCustomer(id, customer);
+    public CustomerResponse updateCustomer(
+            @PathVariable Long id,
+            @RequestBody UpdateCustomerRequest request
+    ) {
+        return customerService.updateCustomer(id, request);
     }
 
     @PostMapping("/{id}/documents")
-    public Document addDocument(@PathVariable Long id, @RequestBody Document document){
-        return customerService.addDocument(id , document);
+    public DocumentResponse addDocument(
+            @PathVariable Long id,
+            @RequestBody AddDocumentRequest request
+    ) {
+        return customerService.addDocument(id, request);
     }
 
     @PostMapping("/{id}/kyc/approve")
-    public Customer approveKyc(@PathVariable Long id ){
+    public CustomerResponse approveKyc(
+            @PathVariable Long id
+    ) {
         return customerService.approveKyc(id);
     }
 
     @PostMapping("/{id}/addresses")
-    public Address addAddress(@PathVariable Long id, @RequestBody Address address){
-        return customerService.addAddress(id, address);
+    public AddressResponse addAddress(
+            @PathVariable Long id,
+            @RequestBody AddAddressRequest request
+    ) {
+        return customerService.addAddress(id, request);
     }
 
     @DeleteMapping("/{id}")
-    public Customer softDeleteCustomer(@PathVariable Long id){
-        return  customerService.softDeleteCustomer(id);
+    public CustomerResponse softDeleteCustomer(
+            @PathVariable Long id
+    ) {
+        return customerService.softDeleteCustomer(id);
     }
 
     @PostMapping("/{id}/kyc/reject")
-    public Customer rejectKyc(@PathVariable Long id){
+    public CustomerResponse rejectKyc(
+            @PathVariable Long id
+    ) {
         return customerService.rejectKyc(id);
     }
 }

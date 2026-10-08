@@ -1,6 +1,7 @@
 package com.telcox.paymentservice.controller;
 
-import com.telcox.paymentservice.entity.Payment;
+import com.telcox.paymentservice.dto.CreatePaymentRequest;
+import com.telcox.paymentservice.dto.PaymentResponse;
 import com.telcox.paymentservice.service.PaymentService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
@@ -12,17 +13,17 @@ public class PaymentController {
     private final PaymentService paymentService;
 
     @PostMapping
-    public Payment createPayment(@RequestBody Payment payment) {
-        return paymentService.createPayment(payment);
+    public PaymentResponse createPayment(@RequestBody CreatePaymentRequest request) {
+        return paymentService.createPayment(request);
     }
 
     @PostMapping("/{paymentId}/complete")
-    public Payment completePayment(@PathVariable Long paymentId) {
+    public PaymentResponse completePayment(@PathVariable Long paymentId) {
         return paymentService.completePayment(paymentId);
     }
 
     @PostMapping("/{paymentId}/fail")
-    public Payment failPayment(@PathVariable Long paymentId, @RequestBody String reason) {
+    public PaymentResponse failPayment(@PathVariable Long paymentId, @RequestBody String reason) {
         return paymentService.failPayment(paymentId, reason);
     }
 

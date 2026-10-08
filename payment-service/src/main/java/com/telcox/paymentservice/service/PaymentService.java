@@ -1,5 +1,7 @@
 package com.telcox.paymentservice.service;
 
+import com.telcox.paymentservice.dto.CreatePaymentRequest;
+import com.telcox.paymentservice.dto.PaymentResponse;
 import com.telcox.paymentservice.entity.OutboxEvent;
 import com.telcox.paymentservice.entity.Payment;
 import com.telcox.paymentservice.enums.PaymentStatus;
@@ -21,18 +23,23 @@ public class PaymentService {
     private final OutboxEventRepository outboxEventRepository;
     private final ObjectMapper objectMapper;
 
-    public Payment createPayment(Payment payment) {
+    public PaymentResponse createPayment(CreatePaymentRequest request) {
+        Payment payment = new Payment();
+        payment.setOrderId(request.getOrderId());
+        payment.setAmount(request.getAmount());
+        payment.setCurrency(request.getCurrency());
         payment.setStatus(PaymentStatus.PENDING);
         payment.setCreatedAt(LocalDateTime.now());
-        return paymentRepository.save(payment);
+        Payment savedPayment = paymentRepository.save(payment);
+        return mapToResponse(savedPayment);
     }
     @Transactional
-    public Payment completePayment(Long paymentId) {
+    public PaymentResponse completePayment(Long paymentId) {
        Payment paymentToComplete = paymentRepository.findById(paymentId).orElseThrow(
                ()-> new RuntimeException("Payment not found")
        );
         if (paymentToComplete.getStatus() == PaymentStatus.COMPLETED) {
-            return paymentToComplete;
+            return mapToResponse(paymentToComplete);
         }
         if (paymentToComplete.getStatus() == PaymentStatus.FAILED) {
             throw new RuntimeException("Failed payment cannot be completed");
@@ -53,17 +60,17 @@ public class PaymentService {
         outboxEvent.setCreatedAt(LocalDateTime.now());
         outboxEvent.setEventType("PaymentCompletedEvent");
         outboxEventRepository.save(outboxEvent);
-       return paymentToComplete;
+       return mapToResponse(paymentToComplete);
     }
 
     @Transactional
-    public Payment failPayment(Long paymentId, String reason) {
+    public PaymentResponse failPayment(Long paymentId, String reason) {
 
         Payment paymentToFail = paymentRepository.findById(paymentId).orElseThrow(
                 ()-> new RuntimeException("Payment not found")
         );
         if (paymentToFail.getStatus() == PaymentStatus.FAILED) {
-            return paymentToFail;
+            return mapToResponse(paymentToFail);
         }
         if (paymentToFail.getStatus() == PaymentStatus.COMPLETED) {
             throw new RuntimeException("Completed payment cannot be failed");
@@ -82,8 +89,21 @@ public class PaymentService {
         outboxEvent.setCreatedAt(LocalDateTime.now());
         outboxEvent.setEventType("PaymentFailedEvent");
         outboxEventRepository.save(outboxEvent);
-        return paymentToFail;
+        return mapToResponse(paymentToFail);
 
+    }
+
+
+    private PaymentResponse mapToResponse(Payment payment) {
+        PaymentResponse response = new PaymentResponse();
+        response.setId(payment.getId());
+        response.setOrderId(payment.getOrderId());
+        response.setAmount(payment.getAmount());
+        response.setCurrency(payment.getCurrency());
+        response.setStatus(payment.getStatus());
+        response.setCreatedAt(payment.getCreatedAt());
+
+        return response;
     }
 
 }

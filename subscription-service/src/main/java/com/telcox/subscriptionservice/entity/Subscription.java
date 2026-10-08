@@ -27,4 +27,5 @@ public class Subscription {
     private String tariffCode;
     private LocalDateTime startDate;
     private LocalDateTime createdAt;
+    private String msisdn;
 }

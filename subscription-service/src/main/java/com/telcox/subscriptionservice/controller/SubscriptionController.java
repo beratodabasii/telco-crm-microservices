@@ -1,5 +1,7 @@
 package com.telcox.subscriptionservice.controller;
 
+import com.telcox.subscriptionservice.dto.CreateSubscriptionRequest;
+import com.telcox.subscriptionservice.dto.SubscriptionResponse;
 import com.telcox.subscriptionservice.entity.Subscription;
 import com.telcox.subscriptionservice.service.SubscriptionService;
 import lombok.RequiredArgsConstructor;
@@ -12,12 +14,12 @@ public class SubscriptionController {
     private final SubscriptionService subscriptionService;
 
     @PostMapping
-    public Subscription createSubscription(@RequestBody Subscription subscription) {
-        return subscriptionService.createSubscription(subscription);
+    public SubscriptionResponse createSubscription(@RequestBody CreateSubscriptionRequest request) {
+        return subscriptionService.createSubscription(request);
     }
 
     @PostMapping("/{subscriptionId}/activate")
-    public Subscription activateSubscription(@PathVariable Long subscriptionId) {
+    public SubscriptionResponse activateSubscription(@PathVariable Long subscriptionId) {
         return subscriptionService.activateSubscription(subscriptionId);
     }
 

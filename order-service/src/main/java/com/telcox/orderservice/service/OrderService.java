@@ -4,6 +4,10 @@ import com.telcox.orderservice.client.CustomerClient;
 import com.telcox.orderservice.client.CustomerResponse;
 import com.telcox.orderservice.client.ProductCatalogClient;
 import com.telcox.orderservice.client.TariffResponse;
+import com.telcox.orderservice.dto.AddOrderItemRequest;
+import com.telcox.orderservice.dto.CreateOrderRequest;
+import com.telcox.orderservice.dto.OrderItemResponse;
+import com.telcox.orderservice.dto.OrderResponse;
 import com.telcox.orderservice.entity.Order;
 import com.telcox.orderservice.entity.OrderItem;
 import com.telcox.orderservice.entity.OutboxEvent;
@@ -38,23 +42,23 @@ public class OrderService {
     private final OutboxEventRepository outboxEventRepository;
 
     @Transactional
-    public Order createOrder(Order order){
-        CustomerResponse customerResponse = customerClient.getCustomer(order.getCustomerId());
+    public OrderResponse createOrder(CreateOrderRequest request){
+        CustomerResponse customerResponse = customerClient.getCustomer(request.getCustomerId());
         if (!customerResponse.getStatus().equals("ACTIVE")) {
             throw new CustomerNotActiveException("Customer is not active");
         }
         Order newOrder = new Order();
-        newOrder.setCustomerId(customerResponse.getId());
+        newOrder.setCustomerId(request.getCustomerId());
         newOrder.setStatus(OrderStatus.DRAFT);
         newOrder.setTotalAmount(BigDecimal.ZERO);
-        newOrder.setCurrency(order.getCurrency());
+        newOrder.setCurrency(request.getCurrency());
         newOrder.setCreatedAt(LocalDateTime.now());
         orderRepository.save(newOrder);
         OrderCreatedEvent orderCreatedEvent = new OrderCreatedEvent();
         orderCreatedEvent.setOrderId(newOrder.getId());
         orderCreatedEvent.setCustomerId(customerResponse.getId());
         orderCreatedEvent.setTotalAmount(newOrder.getTotalAmount());
-        orderCreatedEvent.setCurrency(order.getCurrency());
+        orderCreatedEvent.setCurrency(newOrder.getCurrency());
         orderCreatedEvent.setCreatedAt(newOrder.getCreatedAt());
         String payload = objectMapper.writeValueAsString(orderCreatedEvent);
         OutboxEvent outboxEvent = new OutboxEvent();
@@ -63,120 +67,143 @@ public class OrderService {
         outboxEvent.setCreatedAt(LocalDateTime.now());
         outboxEvent.setPublished(false);
         outboxEventRepository.save(outboxEvent);
-        return newOrder;
+        return mapToResponse(newOrder);
 
     }
 
-    public Order getOrderById(Long id){
-        return orderRepository.findById(id).orElseThrow(
+    public OrderResponse getOrderById(Long id){
+      Order order =  orderRepository.findById(id).orElseThrow(
                 ()-> new RuntimeException("Order not found")
         );
 
+        return mapToResponse(order);
+
     }
 
-    public List<OrderItem> getOrderItems(Long orderId){
-        return orderItemRepository.findByOrderId(orderId);
+    public List<OrderItemResponse> getOrderItems(Long orderId){
+        List<OrderItem> items = orderItemRepository.findByOrderId(orderId);
+        return items.stream()
+                .map(this::mapItemToResponse)
+                .toList();
+
     }
 
     @Transactional
-    public OrderItem addOrderItem(Long orderId, OrderItem orderItem){
-     Order order   =  orderRepository.findById(orderId).orElseThrow(
-              ()-> new RuntimeException("Order not found")
+    public OrderItemResponse addOrderItem(Long orderId, AddOrderItemRequest request) {
 
-      );
-
-     TariffResponse tariffResponse = productCatalogClient.getTariff(orderItem.getProductCode());
-
-     BigDecimal itemTotal = tariffResponse.getMonthlyFee()
-             .multiply(BigDecimal.valueOf(orderItem.getQuantity()));
-
-     BigDecimal newTotal = order.getTotalAmount().add(itemTotal);
-
-     order.setTotalAmount(newTotal);
-
-      OrderItem newOrderItem = new OrderItem();
-      newOrderItem.setOrderId(orderId);
-      newOrderItem.setProductCode(orderItem.getProductCode());
-      newOrderItem.setProductType(orderItem.getProductType());
-      newOrderItem.setQuantity(orderItem.getQuantity());
-      newOrderItem.setUnitPrice(tariffResponse.getMonthlyFee());
-      orderItemRepository.save(newOrderItem);
-      orderRepository.save(order);
-      return newOrderItem ;
-
-    }
-    @Transactional
-    public Order cancelOrder(Long orderId){
-        Order order =  orderRepository.findById(orderId).orElseThrow(
-                ()-> new RuntimeException("Order not found")
+        Order order = orderRepository.findById(orderId).orElseThrow(
+                () -> new RuntimeException("Order not found")
         );
+
+        TariffResponse tariffResponse =
+                productCatalogClient.getTariff(request.getProductCode());
+
+        BigDecimal itemTotal = tariffResponse.getMonthlyFee()
+                .multiply(BigDecimal.valueOf(request.getQuantity()));
+
+        BigDecimal newTotal = order.getTotalAmount().add(itemTotal);
+        order.setTotalAmount(newTotal);
+
+        OrderItem newOrderItem = new OrderItem();
+        newOrderItem.setOrderId(orderId);
+        newOrderItem.setProductCode(request.getProductCode());
+        newOrderItem.setProductType(request.getProductType());
+        newOrderItem.setQuantity(request.getQuantity());
+        newOrderItem.setUnitPrice(tariffResponse.getMonthlyFee());
+
+        OrderItem savedOrderItem = orderItemRepository.save(newOrderItem);
+        orderRepository.save(order);
+
+        return mapItemToResponse(savedOrderItem);
+    }
+
+    @Transactional
+    public OrderResponse cancelOrder(Long orderId) {
+
+        Order order = orderRepository.findById(orderId).orElseThrow(
+                () -> new RuntimeException("Order not found")
+        );
+
         if (order.getStatus() == OrderStatus.CANCELLED) {
             throw new RuntimeException("Order is already cancelled");
         }
+
         order.setStatus(OrderStatus.CANCELLED);
         orderRepository.save(order);
+
         OrderCancelledEvent orderCancelledEvent = new OrderCancelledEvent();
         orderCancelledEvent.setOrderId(orderId);
         orderCancelledEvent.setCustomerId(order.getCustomerId());
         orderCancelledEvent.setCancelledAt(LocalDateTime.now());
+
         String payload = objectMapper.writeValueAsString(orderCancelledEvent);
+
         OutboxEvent outboxEvent = new OutboxEvent();
         outboxEvent.setEventType("OrderCancelledEvent");
         outboxEvent.setPayload(payload);
         outboxEvent.setCreatedAt(LocalDateTime.now());
         outboxEvent.setPublished(false);
+
         outboxEventRepository.save(outboxEvent);
-        return order;
+
+        return mapToResponse(order);
     }
+
     @Transactional
-    public Order confirmOrder(Long orderId){
-        Order order =  orderRepository.findById(orderId).orElseThrow(
-                ()-> new RuntimeException("Order not found")
+    public OrderResponse confirmOrder(Long orderId) {
+        Order order = orderRepository.findById(orderId).orElseThrow(
+                () -> new RuntimeException("Order not found")
         );
-        if( order.getStatus() == OrderStatus.CANCELLED){
+
+        if (order.getStatus() == OrderStatus.CANCELLED) {
             throw new RuntimeException("Order is already cancelled");
-        } else if (order.getStatus() != OrderStatus.DRAFT ) {
+        } else if (order.getStatus() != OrderStatus.DRAFT) {
             throw new RuntimeException("Order is not in DRAFT status");
         }
+
         if (order.getTotalAmount().compareTo(BigDecimal.ZERO) <= 0) {
             throw new RuntimeException("Order total must be greater than zero");
         }
+
         order.setStatus(OrderStatus.PENDING_PAYMENT);
         orderRepository.save(order);
+
         OrderConfirmedEvent orderConfirmedEvent = new OrderConfirmedEvent();
         orderConfirmedEvent.setOrderId(order.getId());
         orderConfirmedEvent.setCustomerId(order.getCustomerId());
         orderConfirmedEvent.setTotalAmount(order.getTotalAmount());
         orderConfirmedEvent.setCurrency(order.getCurrency());
         orderConfirmedEvent.setConfirmedAt(LocalDateTime.now());
+
         String payload = objectMapper.writeValueAsString(orderConfirmedEvent);
+
         OutboxEvent outboxEvent = new OutboxEvent();
         outboxEvent.setEventType("OrderConfirmedEvent");
         outboxEvent.setPayload(payload);
         outboxEvent.setCreatedAt(LocalDateTime.now());
         outboxEvent.setPublished(false);
-        outboxEventRepository.save(outboxEvent);
-        return order;
 
+        outboxEventRepository.save(outboxEvent);
+
+        return mapToResponse(order);
     }
 
     @Transactional
-    public Order markOrderAsPaid(Long orderId){
-        Order order =  orderRepository.findById(orderId).orElseThrow(
-                ()-> new RuntimeException("Order not found")
+    public OrderResponse markOrderAsPaid(Long orderId) {
+        Order order = orderRepository.findById(orderId).orElseThrow(
+                () -> new RuntimeException("Order not found")
         );
 
         OrderItem orderItem = orderItemRepository.findFirstByOrderId(orderId).orElseThrow(
-                ()-> new RuntimeException("OrderItem not found")
+                () -> new RuntimeException("OrderItem not found")
         );
-
 
         if (order.getStatus() == OrderStatus.PAID ||
                 order.getStatus() == OrderStatus.FULFILLED) {
-            return order;
+            return mapToResponse(order);
         }
 
-        if(order.getStatus() != OrderStatus.PENDING_PAYMENT){
+        if (order.getStatus() != OrderStatus.PENDING_PAYMENT) {
             throw new RuntimeException("Order is not in PENDING_PAYMENT status");
         }
 
@@ -185,38 +212,61 @@ public class OrderService {
         orderPaidEvent.setCustomerId(order.getCustomerId());
         orderPaidEvent.setTariffCode(orderItem.getProductCode());
         orderPaidEvent.setPaidAt(LocalDateTime.now());
-        String payload = objectMapper.writeValueAsString(orderPaidEvent);
 
+        String payload = objectMapper.writeValueAsString(orderPaidEvent);
 
         OutboxEvent outboxEvent = new OutboxEvent();
         outboxEvent.setEventType("OrderPaidEvent");
         outboxEvent.setPayload(payload);
         outboxEvent.setCreatedAt(LocalDateTime.now());
         outboxEvent.setPublished(false);
-        outboxEventRepository.save(outboxEvent);
 
+        outboxEventRepository.save(outboxEvent);
 
         order.setStatus(OrderStatus.PAID);
         orderRepository.save(order);
-        return order;
+
+        return mapToResponse(order);
     }
 
-    public Order markOrderAsFulfilled(Long orderId){
-        Order order =  orderRepository.findById(orderId).orElseThrow(
-                ()-> new RuntimeException("Order not found")
+    public OrderResponse markOrderAsFulfilled(Long orderId) {
+        Order order = orderRepository.findById(orderId).orElseThrow(
+                () -> new RuntimeException("Order not found")
         );
 
         if (order.getStatus() == OrderStatus.FULFILLED) {
-            return order;
+            return mapToResponse(order);
         }
 
-       if(order.getStatus() != OrderStatus.PAID){
-           throw new RuntimeException("Order must be PAID before fulfillments");
-       }
-       order.setStatus(OrderStatus.FULFILLED);
-       orderRepository.save(order);
-       return order;
+        if (order.getStatus() != OrderStatus.PAID) {
+            throw new RuntimeException("Order must be PAID before fulfillment");
+        }
 
+        order.setStatus(OrderStatus.FULFILLED);
+        orderRepository.save(order);
+
+        return mapToResponse(order);
     }
 
+    private OrderResponse mapToResponse(Order order) {
+        OrderResponse response = new OrderResponse();
+        response.setId(order.getId());
+        response.setCustomerId(order.getCustomerId());
+        response.setStatus(order.getStatus());
+        response.setTotalAmount(order.getTotalAmount());
+        response.setCurrency(order.getCurrency());
+        response.setCreatedAt(order.getCreatedAt());
+        return response;
+    }
+
+    private OrderItemResponse mapItemToResponse(OrderItem item) {
+        OrderItemResponse response = new OrderItemResponse();
+        response.setId(item.getId());
+        response.setOrderId(item.getOrderId());
+        response.setProductCode(item.getProductCode());
+        response.setProductType(item.getProductType());
+        response.setQuantity(item.getQuantity());
+        response.setUnitPrice(item.getUnitPrice());
+        return response;
+    }
 }

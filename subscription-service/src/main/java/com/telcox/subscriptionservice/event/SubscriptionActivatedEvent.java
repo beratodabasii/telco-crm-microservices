@@ -17,4 +17,5 @@ public class SubscriptionActivatedEvent {
     private Long orderId;
     private String tariffCode;
     private LocalDateTime activatedAt;
+    private String msisdn;
 }

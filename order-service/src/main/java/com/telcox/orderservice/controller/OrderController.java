@@ -1,5 +1,9 @@
 package com.telcox.orderservice.controller;
 
+import com.telcox.orderservice.dto.AddOrderItemRequest;
+import com.telcox.orderservice.dto.CreateOrderRequest;
+import com.telcox.orderservice.dto.OrderItemResponse;
+import com.telcox.orderservice.dto.OrderResponse;
 import com.telcox.orderservice.entity.Order;
 import com.telcox.orderservice.entity.OrderItem;
 import com.telcox.orderservice.service.OrderService;
@@ -15,32 +19,35 @@ public class OrderController {
     private final OrderService orderService;
 
     @PostMapping
-    public Order createOrder(@RequestBody Order order) {
-        return orderService.createOrder(order);
+    public OrderResponse createOrder(@RequestBody CreateOrderRequest request) {
+        return orderService.createOrder(request);
     }
 
     @GetMapping("/{id}")
-    public Order getOrderById(@PathVariable Long id) {
+    public OrderResponse getOrderById(@PathVariable Long id) {
         return orderService.getOrderById(id);
     }
 
     @PostMapping("/{orderId}/items")
-    public OrderItem addOrderItem(@PathVariable Long orderId, @RequestBody OrderItem orderItem) {
-        return orderService.addOrderItem(orderId, orderItem);
+    public OrderItemResponse addOrderItem(
+            @PathVariable Long orderId,
+            @RequestBody AddOrderItemRequest request) {
+
+        return orderService.addOrderItem(orderId, request);
     }
 
     @GetMapping("/{orderId}/items")
-    public List<OrderItem> getOrderItems(@PathVariable Long orderId) {
+    public List<OrderItemResponse> getOrderItems(@PathVariable Long orderId) {
         return orderService.getOrderItems(orderId);
     }
 
     @PostMapping("/{id}/cancel")
-    public Order cancelOrder(@PathVariable Long id) {
+    public OrderResponse cancelOrder(@PathVariable Long id) {
         return orderService.cancelOrder(id);
     }
 
     @PostMapping("/{id}/confirm")
-    public Order confirmOrder(@PathVariable Long id) {
+    public OrderResponse confirmOrder(@PathVariable Long id) {
         return orderService.confirmOrder(id);
     }
 }
