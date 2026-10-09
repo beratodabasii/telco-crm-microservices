@@ -1,0 +1,19 @@
+server:
+  port: 9006
+
+spring:
+  application:
+    name: usage-service
+
+  datasource:
+    url: jdbc:postgresql://localhost:5433/usage_db
+    username: telco
+    password: telco123
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+
+  kafka:
+    bootstrap-servers: localhost:9092

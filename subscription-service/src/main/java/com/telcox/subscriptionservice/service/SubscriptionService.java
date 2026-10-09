@@ -90,6 +90,13 @@ public class SubscriptionService {
 
     }
 
+    public SubscriptionResponse getSubscriptionById(Long subscriptionId){
+        Subscription subscription = subscriptionRepository.findById(subscriptionId)
+                .orElseThrow(() -> new RuntimeException("Subscription not found"));
+
+        return mapToResponse(subscription);
+    }
+
     private SubscriptionResponse mapToResponse(Subscription subscription) {
         SubscriptionResponse response = new SubscriptionResponse();
         response.setId(subscription.getId());

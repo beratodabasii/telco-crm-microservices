@@ -2,7 +2,6 @@ package com.telcox.subscriptionservice.controller;
 
 import com.telcox.subscriptionservice.dto.CreateSubscriptionRequest;
 import com.telcox.subscriptionservice.dto.SubscriptionResponse;
-import com.telcox.subscriptionservice.entity.Subscription;
 import com.telcox.subscriptionservice.service.SubscriptionService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
@@ -21,6 +20,11 @@ public class SubscriptionController {
     @PostMapping("/{subscriptionId}/activate")
     public SubscriptionResponse activateSubscription(@PathVariable Long subscriptionId) {
         return subscriptionService.activateSubscription(subscriptionId);
+    }
+
+    @GetMapping("/{subscriptionId}")
+    public SubscriptionResponse getSubscriptionById(@PathVariable Long subscriptionId) {
+        return subscriptionService.getSubscriptionById(subscriptionId);
     }
 
 }
