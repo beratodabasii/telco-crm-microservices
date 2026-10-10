@@ -1,6 +1,7 @@
 package com.telcox.usageservice.controller;
 
 import com.telcox.usageservice.dto.*;
+import com.telcox.usageservice.enums.UsageThresholdLevel;
 import com.telcox.usageservice.service.UsageService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
@@ -33,6 +34,11 @@ public class UsageController {
     @GetMapping("/subscriptions/{subscriptionId}/quota")
     public UsageQuotaResponse getUsageQuota(@PathVariable Long subscriptionId) {
         return usageService.getUsageQuota(subscriptionId);
+    }
+
+    @GetMapping("/subscriptions/{subscriptionId}/threshold")
+    public UsageThresholdLevel getUsageThreshold(@PathVariable Long subscriptionId) {
+        return usageService.checkThreshold(subscriptionId);
     }
 
 }

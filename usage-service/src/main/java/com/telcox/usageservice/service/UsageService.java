@@ -3,11 +3,20 @@ package com.telcox.usageservice.service;
 import com.telcox.usageservice.client.CatalogClient;
 import com.telcox.usageservice.client.SubscriptionClient;
 import com.telcox.usageservice.dto.*;
+import com.telcox.usageservice.entity.OutboxEvent;
 import com.telcox.usageservice.entity.Usage;
+import com.telcox.usageservice.entity.UsageThresholdRecord;
+import com.telcox.usageservice.enums.UsageThresholdLevel;
 import com.telcox.usageservice.enums.UsageType;
+import com.telcox.usageservice.event.UsageThresholdReachedEvent;
+import com.telcox.usageservice.repository.OutboxEventRepository;
 import com.telcox.usageservice.repository.UsageRepository;
+import com.telcox.usageservice.repository.UsageThresholdRecordRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.core.JacksonException;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -21,8 +30,11 @@ public class UsageService {
     private final UsageRepository usageRepository;
     private final SubscriptionClient subscriptionClient;
     private final CatalogClient catalogClient;
+    private final UsageThresholdRecordRepository usageThresholdRecordRepository;
+    private final OutboxEventRepository outboxEventRepository;
+    private final ObjectMapper objectMapper;
 
-
+    @Transactional
     public UsageResponse createUsage(CreateUsageRequest createUsageRequest) {
 
         Usage usage = new Usage();
@@ -31,6 +43,60 @@ public class UsageService {
         usage.setUsedAt(LocalDateTime.now());
         usage.setUsageType(createUsageRequest.getUsageType());
         Usage savedUsage = usageRepository.save(usage);
+        UsageQuotaResponse quota = getUsageQuota(savedUsage.getSubscriptionId());
+        BigDecimal percentage = getPercentageForUsageType(savedUsage.getUsageType(), quota);
+        UsageThresholdLevel thresholdLevel = getThresholdLevel(percentage);
+        if (thresholdLevel != UsageThresholdLevel.NORMAL) {
+
+            boolean alreadyExists =
+                    usageThresholdRecordRepository
+                            .existsBySubscriptionIdAndUsageTypeAndThresholdLevel(
+                                    savedUsage.getSubscriptionId(),
+                                    savedUsage.getUsageType(),
+                                    thresholdLevel
+                            );
+
+            if (!alreadyExists) {
+
+                UsageThresholdReachedEvent event =
+                        new UsageThresholdReachedEvent(
+                                savedUsage.getSubscriptionId(),
+                                savedUsage.getUsageType(),
+                                thresholdLevel,
+                                percentage,
+                                LocalDateTime.now()
+                        );
+                OutboxEvent outboxEvent = new OutboxEvent();
+
+                outboxEvent.setAggregateType("SUBSCRIPTION");
+                outboxEvent.setAggregateId(savedUsage.getSubscriptionId());
+                outboxEvent.setEventType("UsageThresholdReached");
+                outboxEvent.setPayload(toJson(event));
+                outboxEvent.setCreatedAt(LocalDateTime.now());
+                outboxEvent.setPublished(false);
+
+                outboxEventRepository.save(outboxEvent);
+                System.out.println(
+                        "Threshold event created: "
+                                + event.getSubscriptionId()
+                                + " "
+                                + event.getUsageType()
+                                + " "
+                                + event.getThresholdLevel()
+                                + " "
+                                + event.getPercentage()
+                );
+                UsageThresholdRecord record = new UsageThresholdRecord();
+
+                record.setSubscriptionId(savedUsage.getSubscriptionId());
+                record.setUsageType(savedUsage.getUsageType());
+                record.setThresholdLevel(thresholdLevel);
+                record.setCreatedAt(LocalDateTime.now());
+
+                usageThresholdRecordRepository.save(record);
+            }
+        }
+
         return mapToResponse(savedUsage);
 
     }
@@ -125,6 +191,27 @@ public class UsageService {
         return usageQuotaResponse;
     }
 
+    public UsageThresholdLevel checkThreshold(Long subscriptionId){
+        UsageQuotaResponse quota = getUsageQuota(subscriptionId);
+
+        if (quota.getDataPercentage().compareTo(BigDecimal.valueOf(100)) >= 0
+                || quota.getVoicePercentage().compareTo(BigDecimal.valueOf(100)) >= 0
+                || quota.getSmsPercentage().compareTo(BigDecimal.valueOf(100)) >= 0) {
+
+            return UsageThresholdLevel.HUNDRED_PERCENT;
+        }
+
+        if (quota.getDataPercentage().compareTo(BigDecimal.valueOf(80)) >= 0
+                || quota.getVoicePercentage().compareTo(BigDecimal.valueOf(80)) >= 0
+                || quota.getSmsPercentage().compareTo(BigDecimal.valueOf(80)) >= 0) {
+
+            return UsageThresholdLevel.EIGHTY_PERCENT;
+        }
+
+
+        return UsageThresholdLevel.NORMAL;
+    }
+
     private UsageResponse mapToResponse(Usage usage) {
         UsageResponse response = new UsageResponse();
         response.setId(usage.getId());
@@ -137,5 +224,32 @@ public class UsageService {
 
     }
 
+    private UsageThresholdLevel  getThresholdLevel(BigDecimal percentage ) {
+        if(percentage.compareTo(BigDecimal.valueOf(100)) >= 0){
+            return UsageThresholdLevel.HUNDRED_PERCENT;
+        }
+        if(percentage.compareTo(BigDecimal.valueOf(80)) >= 0){
+            return UsageThresholdLevel.EIGHTY_PERCENT;
+        }
+        return UsageThresholdLevel.NORMAL;
+
+    }
+
+    private BigDecimal getPercentageForUsageType(UsageType usageType, UsageQuotaResponse quota) {
+        return switch (usageType) {
+            case DATA -> quota.getDataPercentage();
+            case VOICE -> quota.getVoicePercentage();
+            case SMS -> quota.getSmsPercentage();
+        };
+
+
+    }
+    private String toJson(Object object) {
+        try {
+            return objectMapper.writeValueAsString(object);
+        } catch (JacksonException e) {
+            throw new RuntimeException("Event JSON'a çevrilemedi", e);
+        }
+    }
 
 }
