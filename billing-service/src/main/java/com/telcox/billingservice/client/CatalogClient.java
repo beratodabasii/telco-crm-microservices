@@ -1,4 +1,4 @@
-package com.telcox.billingservice.dto;
+package com.telcox.billingservice.client;
 import com.telcox.billingservice.dto.CatalogClientResponse;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;

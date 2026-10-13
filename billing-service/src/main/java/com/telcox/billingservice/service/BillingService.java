@@ -1,5 +1,6 @@
 package com.telcox.billingservice.service;
 
+import com.telcox.billingservice.client.CatalogClient;
 import com.telcox.billingservice.client.SubscriptionClient;
 import com.telcox.billingservice.dto.*;
 import com.telcox.billingservice.entity.Invoice;
@@ -14,9 +15,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.core.JacksonException;
-import tools.jackson.databind.ObjectMapper;
 
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Service
