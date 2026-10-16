@@ -1,0 +1,16 @@
+server:
+  port: 9010
+
+spring:
+  application:
+    name: ticket-service
+
+  datasource:
+    url: jdbc:postgresql://localhost:5433/ticket_db
+    username: telco
+    password: telco123
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
